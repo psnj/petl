@@ -6,27 +6,27 @@ from itertools import islice, chain, cycle, product,\
     permutations, combinations, takewhile, dropwhile, \
     starmap, groupby, tee
 import operator
-from collections import namedtuple
+from collections import Counter, namedtuple, OrderedDict
+from itertools import compress, combinations_with_replacement
 from petl.compat import imap, izip, izip_longest, ifilter, ifilterfalse, \
-    Counter, OrderedDict, compress, combinations_with_replacement, reduce, \
-    next, string_types, text_type
+    reduce, next, string_types, text_type
 
 
-from petl.errors import FieldSelectionError, ArgumentError
+from petl.errors import FieldSelectionError
 from petl.comparison import comparable_itemgetter
 
 
 class IterContainer(object):
-    
+
     def __contains__(self, item):
         for o in self:
             if o == item:
                 return True
         return False
-        
+
     def __len__(self):
         return sum(1 for _ in self)
-        
+
     def __getitem__(self, item):
         if isinstance(item, int):
             try:
@@ -41,22 +41,22 @@ class IterContainer(object):
             if o == item:
                 return i
         raise ValueError('%s is not in container' % item)
-    
+
     def min(self, **kwargs):
         return min(self, **kwargs)
-    
+
     def max(self, **kwargs):
         return max(self, **kwargs)
-    
+
     def len(self):
         return len(self)
-    
+
     def set(self):
         return set(self)
-    
+
     def frozenset(self):
         return frozenset(self)
-    
+
     def list(self):
         # avoid iterating twice
         l = list()
@@ -70,10 +70,10 @@ class IterContainer(object):
 
     def dict(self, **kwargs):
         return dict(self, **kwargs)
-    
+
     def enumerate(self, start=0):
         return enumerate(self, start)
-    
+
     def filter(self, function):
         return filter(function, self)
 
@@ -85,29 +85,29 @@ class IterContainer(object):
 
     def sum(self, *args, **kwargs):
         return sum(self, *args, **kwargs)
-    
+
     def all(self):
         return all(self)
-    
+
     def any(self):
         return any(self)
-    
+
     def apply(self, function):
         for item in self:
             function(item)
-            
+
     def counter(self):
         return Counter(self)
-    
+
     def ordereddict(self):
         return OrderedDict(self)
-    
+
     def cycle(self):
         return cycle(self)
-    
+
     def chain(self, *others):
         return chain(self, *others)
-    
+
     def dropwhile(self, predicate):
         return dropwhile(predicate, self)
 
@@ -128,37 +128,37 @@ class IterContainer(object):
 
     def islice(self, *args):
         return islice(self, *args)
-    
+
     def compress(self, selectors):
         return compress(self, selectors)
-    
+
     def groupby(self, *args, **kwargs):
         return groupby(self, *args, **kwargs)
-    
+
     def tee(self, *args, **kwargs):
         return tee(self, *args, **kwargs)
-    
+
     def permutations(self, *args, **kwargs):
         return permutations(self, *args, **kwargs)
-    
+
     def combinations(self, *args, **kwargs):
         return combinations(self, *args, **kwargs)
-    
+
     def combinations_with_replacement(self, *args, **kwargs):
         return combinations_with_replacement(self, *args, **kwargs)
-    
+
     def izip(self, *args, **kwargs):
         return izip(self, *args, **kwargs)
-    
+
     def izip_longest(self, *args, **kwargs):
         return izip_longest(self, *args, **kwargs)
-    
+
     def product(self, *args, **kwargs):
         return product(self, *args, **kwargs)
-    
+
     def __add__(self, other):
         return chain(self, other)
-    
+
     def __iadd__(self, other):
         return chain(self, other)
 
@@ -233,7 +233,7 @@ class ValuesView(IterContainer):
 
     def __repr__(self):
         vreprs = list(map(repr, islice(self, 6)))
-        r = str(self.field) + ': '
+        r = text_type(self.field) + ': '
         r += ', '.join(vreprs[:5])
         if len(vreprs) > 5:
             r += ', ...'
@@ -305,14 +305,12 @@ def rowitemgetter(hdr, spec):
 
 
 def rowgetter(*indices):
-
-    # guard condition
-    assert len(indices) > 0, 'indices is empty'
-
-    # if only one index, we cannot use itemgetter, because we want a singleton
-    # sequence to be returned, but itemgetter with a single argument returns the
-    # value itself, so let's define a function
-    if len(indices) == 1:
+    if len(indices) == 0:
+        return lambda row: tuple()
+    elif len(indices) == 1:
+        # if only one index, we cannot use itemgetter, because we want a
+        # singleton sequence to be returned, but itemgetter with a single
+        # argument returns the value itself, so let's define a function
         index = indices[0]
         return lambda row: (row[index],)  # note comma - singleton tuple
     # if more than one index, use itemgetter, it should be the most efficient
@@ -355,7 +353,7 @@ def fieldnames(table):
 
     """
 
-    return tuple(str(f) for f in header(table))
+    return tuple(text_type(f) for f in header(table))
 
 
 Table.fieldnames = fieldnames
@@ -453,7 +451,7 @@ def iterdicts(table, *sliceargs, **kwargs):
 
 
 def asdict(hdr, row, missing=None):
-    flds = [str(f) for f in hdr]
+    flds = [text_type(f) for f in hdr]
     try:
         # list comprehension should be faster
         items = [(flds[i], row[i]) for i in range(len(flds))]
@@ -562,7 +560,7 @@ class Record(tuple):
         elif f in self.flds:
             idx = self.flds.index(f)
         else:
-            raise ArgumentError('item ' + repr(f) +
+            raise KeyError('item ' + repr(f) +
                                 ' not in fields ' + repr(self.flds))
         try:
             return super(Record, self).__getitem__(idx)
@@ -576,8 +574,14 @@ class Record(tuple):
             except IndexError:  # handle short rows
                 return self.missing
         else:
-            raise ArgumentError('item ' + repr(f) +
+            raise AttributeError('item ' + repr(f) +
                                 ' not in fields ' + repr(self.flds))
+
+    def get(self, key, default=None):
+        try:
+            return self[key]
+        except KeyError:
+            return default
 
 
 def records(table, *sliceargs, **kwargs):

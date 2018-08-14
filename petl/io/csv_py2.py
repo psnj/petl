@@ -18,13 +18,16 @@ def fromcsv_impl(source, **kwargs):
 
 class CSVView(Table):
 
-    def __init__(self, source=None, encoding=None, errors=None, **csvargs):
+    def __init__(self, source=None, encoding=None, errors='strict', header=None, **csvargs):
             self.source = source
             self.encoding = encoding
             self.errors = errors
             self.csvargs = csvargs
+            self.header = header
 
     def __iter__(self):
+        if self.header is not None:
+          yield tuple(self.header)
 
         # determine encoding
         codec = getcodec(self.encoding)
@@ -81,7 +84,7 @@ def teecsv_impl(table, source, **kwargs):
 
 class TeeCSVView(Table):
     def __init__(self, table, source=None, encoding=None,
-                 errors=None, write_header=True, **csvargs):
+                 errors='strict', write_header=True, **csvargs):
         self.table = table
         self.source = source
         self.encoding = encoding
@@ -141,13 +144,14 @@ class UTF8Recoder:
 
 class UnicodeReader:
 
-    def __init__(self, f, encoding=None, errors=None, **csvargs):
+    def __init__(self, f, encoding=None, errors='strict', **csvargs):
         f = UTF8Recoder(f, encoding=encoding, errors=errors)
         self.reader = csv.reader(f, **csvargs)
 
     def next(self):
         row = self.reader.next()
-        return [unicode(s, 'utf-8') for s in row]
+        return [unicode(s, 'utf-8') if isinstance(s, basestring) else s 
+                    for s in row]
 
     def __iter__(self):
         return self
@@ -155,7 +159,7 @@ class UnicodeReader:
 
 class UnicodeWriter:
 
-    def __init__(self, buf, encoding=None, errors=None, **csvargs):
+    def __init__(self, buf, encoding=None, errors='strict', **csvargs):
         # Redirect output to a queue
         self.queue = cStringIO.StringIO()
         self.writer = csv.writer(self.queue, **csvargs)

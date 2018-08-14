@@ -3,7 +3,8 @@ from __future__ import absolute_import, print_function, division
 
 import itertools
 import operator
-from petl.compat import OrderedDict, next, string_types, reduce, text_type
+from collections import OrderedDict
+from petl.compat import next, string_types, reduce, text_type
 
 
 from petl.errors import ArgumentError
@@ -346,9 +347,35 @@ Table.groupcountdistinctvalues = groupcountdistinctvalues
 
 def groupselectfirst(table, key, presorted=False, buffersize=None,
                      tempdir=None, cache=True):
-    """Group by the `key` field then return the first row within each group."""
+    """Group by the `key` field then return the first row within each group.
+    E.g.::
 
-    _reducer = lambda k, rows: next(rows)
+        >>> import petl as etl
+        >>> table1 = [['foo', 'bar', 'baz'],
+        ...           ['A', 1, True],
+        ...           ['C', 7, False],
+        ...           ['B', 2, False],
+        ...           ['C', 9, True]]
+        >>> table2 = etl.groupselectfirst(table1, key='foo')
+        >>> table2
+        +-----+-----+-------+
+        | foo | bar | baz   |
+        +=====+=====+=======+
+        | 'A' |   1 | True  |
+        +-----+-----+-------+
+        | 'B' |   2 | False |
+        +-----+-----+-------+
+        | 'C' |   7 | False |
+        +-----+-----+-------+
+
+    See also :func:`petl.transform.reductions.groupselectlast`,
+    :func:`petl.transform.dedup.distinct`.
+
+    """
+
+    def _reducer(k, rows):
+        return next(rows)
+
     return rowreduce(table, key, reducer=_reducer, presorted=presorted,
                      buffersize=buffersize, tempdir=tempdir, cache=cache)
 
@@ -356,11 +383,54 @@ def groupselectfirst(table, key, presorted=False, buffersize=None,
 Table.groupselectfirst = groupselectfirst
 
 
+def groupselectlast(table, key, presorted=False, buffersize=None,
+                    tempdir=None, cache=True):
+    """Group by the `key` field then return the last row within each group.
+    E.g.::
+
+        >>> import petl as etl
+        >>> table1 = [['foo', 'bar', 'baz'],
+        ...           ['A', 1, True],
+        ...           ['C', 7, False],
+        ...           ['B', 2, False],
+        ...           ['C', 9, True]]
+        >>> table2 = etl.groupselectlast(table1, key='foo')
+        >>> table2
+        +-----+-----+-------+
+        | foo | bar | baz   |
+        +=====+=====+=======+
+        | 'A' |   1 | True  |
+        +-----+-----+-------+
+        | 'B' |   2 | False |
+        +-----+-----+-------+
+        | 'C' |   9 | True  |
+        +-----+-----+-------+
+
+    See also :func:`petl.transform.reductions.groupselectfirst`,
+    :func:`petl.transform.dedup.distinct`.
+
+    .. versionadded:: 1.1.0
+
+    """
+
+    def _reducer(k, rows):
+        row = None
+        for row in rows:
+            pass
+        return row
+
+    return rowreduce(table, key, reducer=_reducer, presorted=presorted,
+                     buffersize=buffersize, tempdir=tempdir, cache=cache)
+
+
+Table.groupselectlast = groupselectlast
+
+
 def groupselectmin(table, key, value, presorted=False, buffersize=None,
                    tempdir=None, cache=True):
-    """Group by the `key` field then return the row with the maximum of the
+    """Group by the `key` field then return the row with the minimum of the
     `value` field within each group. N.B., will only return one row for each
-    group, even if multiple rows have the same (maximum) value."""
+    group, even if multiple rows have the same (minimum) value."""
 
     return groupselectfirst(sort(table, value, reverse=False), key,
                             presorted=presorted, buffersize=buffersize,
@@ -372,7 +442,7 @@ Table.groupselectmin = groupselectmin
     
 def groupselectmax(table, key, value, presorted=False, buffersize=None,
                    tempdir=None, cache=True):
-    """Group by the `key` field then return the row with the minimum of the
+    """Group by the `key` field then return the row with the maximum of the
     `value` field within each group. N.B., will only return one row for each
     group, even if multiple rows have the same (maximum) value."""
 
@@ -421,6 +491,8 @@ def mergeduplicates(table, key, missing=None, presorted=False, buffersize=None,
     `buffersize`, `tempdir` and `cache` arguments under the
     :func:`petl.transform.sorts.sort` function.
 
+    See also :func:`petl.transform.dedup.conflicts`.
+
     """
 
     return MergeDuplicatesView(table, key, missing=missing, presorted=presorted,
@@ -455,7 +527,7 @@ def itermergeduplicates(table, key, missing):
     # determine output fields
     if isinstance(key, string_types):
         outhdr = [key]
-        keyflds = set([key])
+        keyflds = {key}
     else:
         outhdr = list(key)
         keyflds = set(key)

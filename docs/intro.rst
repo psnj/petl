@@ -21,8 +21,8 @@ To verify the installation, the test suite can be run with `nose
     $ pip install nose
     $ nosetests -v petl
 
-:mod:`petl` is compatible with Python versions 2.6, 2.7 and 3.4, and
-has been tested under Linux and Windows operating systems.
+:mod:`petl` has been tested with Python versions 2.7 and 3.4-3.6 
+under Linux and Windows operating systems.
 
 .. _intro_dependencies:
 
@@ -36,7 +36,9 @@ Some of the functions in this package require installation of third party
 packages. This is indicated in the relevant parts of the documentation.
 
 Some domain-specific and/or experimental extensions to :mod:`petl` are
-available from the `petlx <http://petlx.readthedocs.org>`_ package.
+available from the petlx_ package.
+
+.. _petlx: http://petlx.readthedocs.org
 
 .. _intro_design_goals:
 
@@ -49,7 +51,7 @@ heterogeneous and/or of mixed quality.
 
 :mod:`petl` transformation pipelines make minimal use of system memory
 and can scale to millions of rows if speed is not a priority. However
-if you are working with large datasets and/or performance-critical
+if you are working with very large datasets and/or performance-critical
 applications then other packages may be more suitable, e.g., see
 `pandas <http://pandas.pydata.org/>`_, `pytables
 <https://pytables.github.io/>`_, `bcolz <http://bcolz.blosc.org/>`_
@@ -218,7 +220,7 @@ HTML table if returned from a cell in an IPython notebook. The functions
 :func:`petl.util.vis.display` and :func:`petl.util.vis.displayall` also
 provide more control over rendering of tables within an IPython notebook.
 
-For examples of usage see the `repr_html notebook <http://nbviewer.ipython.org/github/alimanfoo/petl/blob/v1.0/repr_html.ipynb>`_.
+For examples of usage see the `repr_html notebook <http://nbviewer.ipython.org/github/petl-developers/petl/blob/v1.0/repr_html.ipynb>`_.
 
 .. _intro_executable:
 
@@ -289,6 +291,73 @@ Note that this convention does not place any restrictions on the
 lengths of header and data rows. A table may contain a header row
 and/or data rows of varying lengths.
 
+.. _intro_extending:
+
+Extensions - integrating custom data sources
+--------------------------------------------
+
+The :mod:`petl.io` module has functions for extracting data from a number of
+well-known data sources. However, it is also straightforward to write an
+extension that enables integration with other data sources. For an object to
+be usable as a :mod:`petl` table it has to implement the **table container**
+convention described above. Below is the source code for an
+:class:`ArrayView` class which allows integration of :mod:`petl` with numpy
+arrays. This class is included within the :mod:`petl.io.numpy`
+module but also provides an example of how other data sources might be
+integrated::
+
+    >>> import petl as etl
+    >>> class ArrayView(etl.Table):
+    ...     def __init__(self, a):
+    ...         # assume that a is a numpy array
+    ...         self.a = a
+    ...     def __iter__(self):
+    ...         # yield the header row
+    ...         header = tuple(self.a.dtype.names)
+    ...         yield header
+    ...         # yield the data rows
+    ...         for row in self.a:
+    ...             yield tuple(row)
+    ...
+
+Now this class enables the use of numpy arrays with :mod:`petl` functions,
+e.g.::
+
+    >>> import numpy as np
+    >>> a = np.array([('apples', 1, 2.5),
+    ...               ('oranges', 3, 4.4),
+    ...               ('pears', 7, 0.1)],
+    ...              dtype='U8, i4,f4')
+    >>> t1 = ArrayView(a)
+    >>> t1
+    +-----------+----+-----------+
+    | f0        | f1 | f2        |
+    +===========+====+===========+
+    | 'apples'  | 1  | 2.5       |
+    +-----------+----+-----------+
+    | 'oranges' | 3  | 4.4000001 |
+    +-----------+----+-----------+
+    | 'pears'   | 7  | 0.1       |
+    +-----------+----+-----------+
+
+    >>> t2 = t1.cut('f0', 'f2').convert('f0', 'upper').addfield('f3', lambda row: row.f2 * 2)
+    >>> t2
+    +-----------+-----------+---------------------+
+    | f0        | f2        | f3                  |
+    +===========+===========+=====================+
+    | 'APPLES'  | 2.5       |                 5.0 |
+    +-----------+-----------+---------------------+
+    | 'ORANGES' | 4.4000001 |  8.8000001907348633 |
+    +-----------+-----------+---------------------+
+    | 'PEARS'   | 0.1       | 0.20000000298023224 |
+    +-----------+-----------+---------------------+
+
+If you develop an extension for a data source that you think would also be
+useful for others, please feel free to submit a PR to the
+`petl GitHub repository <https://github.com/petl-developers/petl>`_, or if it
+is a domain-specific data source, the
+`petlx GitHub repository <https://github.com/petl-developers/petlx>`_.
+
 .. _intro_caching:
 
 Caching
@@ -317,45 +386,3 @@ turn on or off the caching of sorted data.
 There is also an explicit :func:`petl.util.materialise.cache` function, which
 can be used to cache in memory up to a configurable number of rows from any
 table.
-
-.. _intro_acknowledgments:
-
-Acknowledgments
----------------
-
-This package is maintained by Alistair Miles
-<alimanfoo@googlemail.com> with funding from the `MRC Centre for
-Genomics and Global Health <http://www.cggh.org>`_.
-
-The following people have contributed to the development of this
-package:
-
-* Alexander Stauber
-* Andrew Kim (`andrewakim <https://github.com/andrewakim>`_)
-* Caleb Lloyd (`caleblloyd <https://github.com/caleblloyd>`_)
-* César Roldán (`ihuro <https://github.com/ihuro>`_)
-* Chris Lasher (`gotgenes <https://github.com/gotgenes>`_)
-* Dustin Engstrom (`engstrom <https://github.com/engstrom>`_)
-* Florent Xicluna (`florentx <https://github.com/florentx>`_)
-* Jonathan Camile (`deytao <https://github.com/deytao>`_)
-* Jonathan Moss (`a-musing-moose <https://github.com/a-musing-moose>`_)
-* Kenneth Borthwick
-* Krisztián Fekete (`krisztianfekete <https://github.com/krisztianfekete>`_)
-* Michael Rea (`rea725 <https://github.com/rea725>`_)
-* Olivier Macchioni (`omacchioni <https://github.com/omacchioni>`_)
-* Olivier Poitrey (`rs <https://github.com/rs>`_)
-* Paul Jensen (`psnj <https://github.com/psnj>`_)
-* Peder Jakobsen (`pjakobsen <https://github.com/pjakobsen>`_)
-* Phillip Knaus (`phillipknaus <https://github.com/phillipknauss>`_)
-* Richard Pearson (`podpearson <https://github.com/podpearson>`_)
-* Robert DeSimone (`icenine457 <https://github.com/icenine457>`_)
-* Roger Woodley (`rogerkwoodley <https://github.com/rogerkwoodley>`_)
-* Zach Palchick (`zpalchik <https://github.com/zpalchick>`_)
-* `adamsdarlingtower <https://github.com/adamsdarlingtower>`_
-* `imazor <https://github.com/imazor>`_
-* `james-unified <https://github.com/james-unified>`_
-* `Mgutjahr <https://github.com/Mgutjahr>`_
-* `shayh <https://github.com/shayh>`_
-* `thatneat <https://github.com/thatneat>`_
-* `titusz <https://github.com/titusz>`_
-* `zigen <https://github.com/zigen>`_

@@ -17,7 +17,8 @@ else:
         teecsv_impl
 
 
-def fromcsv(source=None, encoding=None, errors=None, **csvargs):
+def fromcsv(source=None, encoding=None, errors='strict', header=None, 
+            **csvargs):
     """
     Extract a table from a delimited file. E.g.::
 
@@ -57,11 +58,12 @@ def fromcsv(source=None, encoding=None, errors=None, **csvargs):
 
     source = read_source_from_arg(source)
     csvargs.setdefault('dialect', 'excel')
-    return fromcsv_impl(source=source, encoding=encoding, errors=errors,
-                        **csvargs)
+    return fromcsv_impl(source=source, encoding=encoding, errors=errors, 
+                        header=header, **csvargs)
 
 
-def fromtsv(source=None, encoding=None, errors=None, **csvargs):
+def fromtsv(source=None, encoding=None, errors='strict', header=None, 
+            **csvargs):
     """
     Convenience function, as :func:`petl.io.csv.fromcsv` but with different
     default dialect (tab delimited).
@@ -72,7 +74,7 @@ def fromtsv(source=None, encoding=None, errors=None, **csvargs):
     return fromcsv(source, encoding=encoding, errors=errors, **csvargs)
 
 
-def tocsv(table, source=None, encoding=None, errors=None, write_header=True,
+def tocsv(table, source=None, encoding=None, errors='strict', write_header=True,
           **csvargs):
     """
     Write the table to a CSV file. E.g.::
@@ -110,7 +112,7 @@ def tocsv(table, source=None, encoding=None, errors=None, write_header=True,
 Table.tocsv = tocsv
 
 
-def appendcsv(table, source=None, encoding=None, errors=None,
+def appendcsv(table, source=None, encoding=None, errors='strict',
               write_header=False, **csvargs):
     """
     Append data rows to an existing CSV file. As :func:`petl.io.csv.tocsv`
@@ -132,7 +134,7 @@ def appendcsv(table, source=None, encoding=None, errors=None,
 Table.appendcsv = appendcsv
 
 
-def totsv(table, source=None, encoding=None, errors=None,
+def totsv(table, source=None, encoding=None, errors='strict',
           write_header=True, **csvargs):
     """
     Convenience function, as :func:`petl.io.csv.tocsv` but with different
@@ -148,7 +150,7 @@ def totsv(table, source=None, encoding=None, errors=None,
 Table.totsv = totsv
 
 
-def appendtsv(table, source=None, encoding=None, errors=None,
+def appendtsv(table, source=None, encoding=None, errors='strict',
               write_header=False, **csvargs):
     """
     Convenience function, as :func:`petl.io.csv.appendcsv` but with different
@@ -164,7 +166,7 @@ def appendtsv(table, source=None, encoding=None, errors=None,
 Table.appendtsv = appendtsv
 
 
-def teecsv(table, source=None, encoding=None, errors=None, write_header=True,
+def teecsv(table, source=None, encoding=None, errors='strict', write_header=True,
            **csvargs):
     """
     Returns a table that writes rows to a CSV file as they are iterated over.
@@ -181,7 +183,7 @@ def teecsv(table, source=None, encoding=None, errors=None, write_header=True,
 Table.teecsv = teecsv
 
 
-def teetsv(table, source=None, encoding=None, errors=None, write_header=True,
+def teetsv(table, source=None, encoding=None, errors='strict', write_header=True,
            **csvargs):
     """
     Convenience function, as :func:`petl.io.csv.teecsv` but with different
